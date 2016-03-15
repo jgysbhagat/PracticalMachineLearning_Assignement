@@ -1,0 +1,62 @@
+---
+title: "Project-PracticalMachineLearning"
+author: "Jigyasa Bhagat"
+date: "March 14, 2016"
+output: html_document
+---
+
+```{r setup, include=T}
+library(caret)
+library(randomForest)
+train_data=read.csv("pml-training.csv",header=T)
+test_data=read.csv("pml_testing.csv",header=T)
+
+```
+
+# splitting training and test sets
+```{r}
+set.seed(123)
+my_intrain=createDataPartition(train_data$classe,p=.7,list=F)
+my_train=train_data[my_intrain,]
+my_test=train_data[-my_intrain,]
+dim(my_train)
+dim(my_test)
+```
+# Data Cleaning
+```{r}
+var_nzv=nearZeroVar(my_train,saveMetrics=T)
+unimp_col=rownames(var_nzv[var_nzv$nzv==T,])
+col_index=which(!(colnames(my_train)%in%unimp_col))
+my_train=subset(my_train,select=col_index)
+```
+#Counting NAS
+```{r}
+na_count=sapply(my_train, function(x){sum(length(which(is.na(x))))})
+my_train_na=my_train[,na_count==0] # All are either 0 or 13453
+my_train_final=my_train_na[,-c(1,2,3,4,5)]
+```
+# Chose Random Forests as there are a lot of variables. Also tried classification tree but the accuracy was quite low.
+```{r}
+my_model_rf=randomForest(classe~.,data=my_train_final)
+my_model_rf
+predict_rf_train=predict(my_model_rf,my_train_final[,-54])
+confusionMatrix(predict_rf_train,my_train_final$classe)
+predict_rf=predict(my_model_rf,my_test[,-160])
+confusionMatrix(predict_rf,my_test$classe)
+varImpPlot(my_model_rf)
+
+
+my_model_rpart=train(classe~.,data=my_train_final,method="rpart")
+plot(my_model_rpart$finalModel)
+print(my_model_rpart$finalModel)
+text(my_model_rpart$finalModel,pretty=0)
+predict_rpart=predict(my_model_rpart,my_test[,-160])
+confusionMatrix(predict_rpart,my_test$classe)
+
+```
+#Final predictions
+```{r}
+predict_final=predict(my_model_rf,newdata=test_data)
+predict_final
+```
+
